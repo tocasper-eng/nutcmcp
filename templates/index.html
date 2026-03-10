@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>會計科目查詢</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Microsoft JhengHei", sans-serif; background: #f5f5f5; color: #333; }
+    header { background: #1a73e8; color: white; padding: 16px 24px; }
+    header h1 { font-size: 1.4rem; }
+    .container { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    .search-bar { display: flex; gap: 8px; margin-bottom: 20px; }
+    .search-bar input {
+      flex: 1; padding: 10px 14px; border: 1px solid #ccc;
+      border-radius: 6px; font-size: 1rem;
+    }
+    .search-bar button {
+      padding: 10px 20px; background: #1a73e8; color: white;
+      border: none; border-radius: 6px; font-size: 1rem; cursor: pointer;
+    }
+    .search-bar button:hover { background: #1557b0; }
+    .error { background: #fce8e6; color: #c5221f; padding: 12px; border-radius: 6px; margin-bottom: 16px; }
+    .info { color: #666; margin-bottom: 12px; font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    th { background: #1a73e8; color: white; padding: 12px 16px; text-align: left; font-size: 0.9rem; }
+    td { padding: 11px 16px; border-bottom: 1px solid #eee; font-size: 0.95rem; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f0f7ff; }
+    .amt-pos { color: #188038; font-weight: bold; }
+    .amt-neg { color: #c5221f; font-weight: bold; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .tag-D { background: #e8f0fe; color: #1a73e8; }
+    .tag-C { background: #fce8e6; color: #c5221f; }
+  </style>
+</head>
+<body>
+  <header><h1>會計科目查詢系統</h1></header>
+  <div class="container">
+    <form class="search-bar" method="get">
+      <input type="text" name="q" value="{{ keyword }}" placeholder="輸入科目名稱或科目編號（留空顯示全部）">
+      <button type="submit">查詢</button>
+    </form>
+
+    {% if error %}
+      <div class="error">連線錯誤：{{ error }}</div>
+    {% else %}
+      <p class="info">共 {{ rows|length }} 筆科目</p>
+      <table>
+        <thead>
+          <tr>
+            <th>科目編號</th>
+            <th>科目名稱</th>
+            <th>借/貸</th>
+            <th style="text-align:right">餘額</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>{{ r.accino }}</td>
+            <td>{{ r.accinm }}</td>
+            <td><span class="tag tag-{{ r.di }}">{{ "借" if r.di == "D" else "貸" }}</span></td>
+            <td style="text-align:right">
+              {% if r.amt %}
+                {% set v = r.amt | float %}
+                <span class="{{ 'amt-neg' if v < 0 else 'amt-pos' }}">
+                  {{ "{:,.0f}".format(v) }}
+                </span>
+              {% else %}
+                0
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </div>
+</body>
+</html>
