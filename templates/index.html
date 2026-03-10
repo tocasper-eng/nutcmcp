@@ -3,79 +3,142 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>會計科目查詢</title>
+  <title>資料庫 AI 助手</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: "Microsoft JhengHei", sans-serif; background: #f5f5f5; color: #333; }
-    header { background: #1a73e8; color: white; padding: 16px 24px; }
-    header h1 { font-size: 1.4rem; }
-    .container { max-width: 900px; margin: 24px auto; padding: 0 16px; }
-    .search-bar { display: flex; gap: 8px; margin-bottom: 20px; }
-    .search-bar input {
-      flex: 1; padding: 10px 14px; border: 1px solid #ccc;
-      border-radius: 6px; font-size: 1rem;
+    body { font-family: "Microsoft JhengHei", sans-serif; background: #f5f5f5; color: #333; display: flex; flex-direction: column; height: 100vh; }
+    header { background: #1a73e8; color: white; padding: 14px 24px; flex-shrink: 0; }
+    header h1 { font-size: 1.3rem; }
+    header p { font-size: 0.85rem; opacity: 0.85; margin-top: 2px; }
+    .chat-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; max-width: 860px; width: 100%; margin: 0 auto; padding: 16px 16px 0; }
+    .chat-messages { flex: 1; overflow-y: auto; padding-right: 4px; }
+    .bubble { margin-bottom: 14px; display: flex; flex-direction: column; }
+    .bubble.user { align-items: flex-end; }
+    .bubble.assistant { align-items: flex-start; }
+    .bubble-label { font-size: 0.75rem; color: #999; margin-bottom: 4px; }
+    .bubble-text {
+      max-width: 78%; padding: 10px 14px; border-radius: 12px;
+      font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
     }
-    .search-bar button {
-      padding: 10px 20px; background: #1a73e8; color: white;
-      border: none; border-radius: 6px; font-size: 1rem; cursor: pointer;
+    .bubble.user .bubble-text { background: #1a73e8; color: white; border-bottom-right-radius: 4px; }
+    .bubble.assistant .bubble-text { background: white; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .bubble.error .bubble-text { background: #fce8e6; color: #c5221f; }
+    .input-bar { display: flex; gap: 8px; padding: 14px 0 16px; flex-shrink: 0; }
+    .input-bar input {
+      flex: 1; padding: 11px 16px; border: 1px solid #ccc;
+      border-radius: 24px; font-size: 1rem; outline: none;
+      font-family: inherit;
     }
-    .search-bar button:hover { background: #1557b0; }
-    .error { background: #fce8e6; color: #c5221f; padding: 12px; border-radius: 6px; margin-bottom: 16px; }
-    .info { color: #666; margin-bottom: 12px; font-size: 0.9rem; }
-    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
-    th { background: #1a73e8; color: white; padding: 12px 16px; text-align: left; font-size: 0.9rem; }
-    td { padding: 11px 16px; border-bottom: 1px solid #eee; font-size: 0.95rem; }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #f0f7ff; }
-    .amt-pos { color: #188038; font-weight: bold; }
-    .amt-neg { color: #c5221f; font-weight: bold; }
-    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
-    .tag-D { background: #e8f0fe; color: #1a73e8; }
-    .tag-C { background: #fce8e6; color: #c5221f; }
+    .input-bar input:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px #d2e3fc; }
+    .input-bar button {
+      padding: 11px 22px; background: #1a73e8; color: white;
+      border: none; border-radius: 24px; font-size: 1rem; cursor: pointer;
+      font-family: inherit; white-space: nowrap;
+    }
+    .input-bar button:hover { background: #1557b0; }
+    .input-bar button:disabled { background: #aaa; cursor: not-allowed; }
+    .hints { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .hint-chip {
+      background: white; border: 1px solid #dadce0; border-radius: 16px;
+      padding: 6px 14px; font-size: 0.85rem; cursor: pointer; color: #1a73e8;
+    }
+    .hint-chip:hover { background: #f0f7ff; border-color: #1a73e8; }
+    .loading-dot { animation: blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
   </style>
 </head>
 <body>
-  <header><h1>會計科目查詢系統</h1></header>
-  <div class="container">
-    <form class="search-bar" method="get">
-      <input type="text" name="q" value="{{ keyword }}" placeholder="輸入科目名稱或科目編號（留空顯示全部）">
-      <button type="submit">查詢</button>
-    </form>
+  <header>
+    <h1>資料庫 AI 助手</h1>
+    <p>用自然語言詢問資料庫問題，AI 將自動查詢並回答</p>
+  </header>
 
-    {% if error %}
-      <div class="error">連線錯誤：{{ error }}</div>
-    {% else %}
-      <p class="info">共 {{ rows|length }} 筆科目</p>
-      <table>
-        <thead>
-          <tr>
-            <th>科目編號</th>
-            <th>科目名稱</th>
-            <th>借/貸</th>
-            <th style="text-align:right">餘額</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in rows %}
-          <tr>
-            <td>{{ r.accino }}</td>
-            <td>{{ r.accinm }}</td>
-            <td><span class="tag tag-{{ r.di }}">{{ "借" if r.di == "D" else "貸" }}</span></td>
-            <td style="text-align:right">
-              {% if r.amt %}
-                {% set v = r.amt | float %}
-                <span class="{{ 'amt-neg' if v < 0 else 'amt-pos' }}">
-                  {{ "{:,.0f}".format(v) }}
-                </span>
-              {% else %}
-                0
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% endif %}
+  <div class="chat-wrap">
+    <div class="chat-messages" id="chatMessages">
+      <div class="bubble assistant">
+        <div class="bubble-label">助手</div>
+        <div class="bubble-text">您好！請用自然語言提問，我會自動查詢資料庫並回答。例如：</div>
+      </div>
+      <div class="hints" id="hints">
+        <span class="hint-chip" onclick="useHint(this)">我有多少銀行存款？</span>
+        <span class="hint-chip" onclick="useHint(this)">本月銷售總額是多少？</span>
+        <span class="hint-chip" onclick="useHint(this)">列出所有客戶</span>
+        <span class="hint-chip" onclick="useHint(this)">應收帳款餘額？</span>
+        <span class="hint-chip" onclick="useHint(this)">有哪些資料表？</span>
+      </div>
+    </div>
+    <div class="input-bar">
+      <input type="text" id="chatInput" placeholder="輸入問題，例如：本年度銷售前三名客戶？" autofocus />
+      <button id="sendBtn" onclick="sendMessage()">送出</button>
+    </div>
   </div>
+
+  <script>
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+
+    function useHint(el) {
+      chatInput.value = el.textContent;
+      chatInput.focus();
+    }
+
+    function appendBubble(role, text) {
+      const div = document.createElement('div');
+      div.className = 'bubble ' + role;
+      const label = document.createElement('div');
+      label.className = 'bubble-label';
+      label.textContent = role === 'user' ? '您' : '助手';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble-text';
+      bubble.textContent = text;
+      div.appendChild(label);
+      div.appendChild(bubble);
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      return bubble;
+    }
+
+    async function sendMessage() {
+      const msg = chatInput.value.trim();
+      if (!msg) return;
+
+      // Hide hint chips after first message
+      const hints = document.getElementById('hints');
+      if (hints) hints.remove();
+
+      chatInput.value = '';
+      sendBtn.disabled = true;
+      appendBubble('user', msg);
+
+      const loadingBubble = appendBubble('assistant', '');
+      loadingBubble.innerHTML = '思考中 <span class="loading-dot">...</span>';
+
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg }),
+        });
+        const data = await res.json();
+        loadingBubble.parentElement.remove();
+        if (data.error) {
+          const b = appendBubble('assistant error', '錯誤：' + data.error);
+        } else {
+          appendBubble('assistant', data.answer);
+        }
+      } catch (err) {
+        loadingBubble.parentElement.remove();
+        appendBubble('assistant error', '網路錯誤，請稍後再試。');
+      } finally {
+        sendBtn.disabled = false;
+        chatInput.focus();
+      }
+    }
+  </script>
 </body>
 </html>
